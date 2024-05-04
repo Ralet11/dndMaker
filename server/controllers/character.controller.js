@@ -1,7 +1,7 @@
 import Character from "../models/characters.model.js";
 import CharacterItem from "../models/characterItems.model.js";
 import Item from "../models/items.model.js";
-
+import { io } from "../app.js";
 
 // Controlador para crear un nuevo personaje
 export const createCharacter = async (req, res) => {
@@ -99,6 +99,8 @@ export const addItem = async (req, res) => {
             quantity,
             equipped: false
         });
+
+        io.emit('characterActualizado', {characterId});
 
         // Enviar la nueva instancia como respuesta
         res.status(201).json({msg: "item added correctly", status: "OK"});
@@ -280,3 +282,32 @@ export const unequipItem = async (req, res) => {
         res.status(500).json({ message: "Error al desequipar el ítem." });
     }
 };
+
+export const updateAttribute = async (req, res) => {
+    try {
+        const { characterId, attribute, value } = req.body;
+
+        // Verificar si el atributo es uno de los permitidos y validar el valor
+        const allowedAttributes = ['level', 'hitPoints', 'armorClass', 'speed', 'str', 'dex', 'con', 'int', 'wis', 'cha'];
+        if (!allowedAttributes.includes(attribute)) {
+            return res.status(400).json({ message: 'Atributo no válido.' });
+        }
+
+        if (isNaN(value) || value < 0) {
+            return res.status(400).json({ message: 'El valor del atributo debe ser un número positivo.' });
+        }
+
+        // Actualizar el atributo en la base de datos
+        await Character.update(
+            { [attribute]: value },
+            { where: { id: characterId } }
+        );
+
+        io.emit('characterActualizado', {characterId});
+
+        res.status(200).json({ message: `Atributo ${attribute} actualizado correctamente.` });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Error al actualizar el atributo.' });
+    }
+}
